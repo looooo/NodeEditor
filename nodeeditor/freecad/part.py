@@ -5,6 +5,11 @@ from PySide import QtGui, QtCore
 from nodeeditor import NodeProxyWidget, ManipulatorNodeWidget, BaseNode
 
 
+#TOTO:
+#SelectionNode
+#RevolveNode
+#FilletNode
+
 class SketcherNode(BaseNode):
     def __init__(self, scene):
         super(SketcherNode, self).__init__(scene, "Sketch")
@@ -43,6 +48,30 @@ class DocumentNode(BaseNode):
         if not self.doc:
             self.doc = App.newDocument()
         return self.doc
+
+
+class ExtrudeNode(BaseNode):
+    def __init__(self, scene):
+        super(ExtrudeNode, self).__init__(scene, "Extrude", "blue")
+        self.height = QtGui.QDoubleSpinBox()
+        self.height.setValue(10)
+        self.manipulator = ManipulatorNodeWidget(inp=True, outp=True, scene=scene)
+        self.height_man =  ManipulatorNodeWidget(widget=self.height, inp=True, scene=scene)
+        self.layout.addWidget(self.manipulator)
+        self.layout.addWidget(self.height_man)
+        self.add_to_scene()
+        self.manipulator.output = self.output
+
+    def output(self):
+        sketch = self.manipulator.input
+        if sketch:
+            face =  Part.Face(sketch.Shape.Wires)
+            h = self.height_man.input
+            if h is None:
+                h = self.height.value()
+            self.height.setValue(h)
+            shape = face.extrude(App.Vector(0,0,h))
+            return shape
 
 
 class ExtrudeNode(BaseNode):
