@@ -2,7 +2,7 @@ import Part
 import FreeCAD as App
 import FreeCADGui as Gui
 from PySide import QtGui, QtCore
-from nodeeditor import NodeProxyWidget, ManipulatorNodeWidget, BaseNode
+from nodeeditor import NodeProxyWidget, BaseNode, SlotInput, SlotOutput
 
 
 #TOTO:
@@ -12,20 +12,19 @@ from nodeeditor import NodeProxyWidget, ManipulatorNodeWidget, BaseNode
 
 class SketcherNode(BaseNode):
     def __init__(self, scene):
-        super(SketcherNode, self).__init__(scene, "Sketch")
+        super(SketcherNode, self).__init__(scene, "Sketch", "pink")
         self.sketch = None
         self.push = QtGui.QPushButton("Show Sketch")
-        self.manipulator = ManipulatorNodeWidget(widget=self.push, outp=True,  scene=scene)
-        self.document = ManipulatorNodeWidget(widget=QtGui.QLabel("document"), inp=True,  scene=scene)
-        self.layout.addWidget(self.document)
-        self.layout.addWidget(self.manipulator)
-        self.add_to_scene()
+        self.scetch_slot = SlotOutput(scene)
+        self.doc_slot = SlotInput(scene)
+        self.addWidget(self.doc_slot, QtGui.QLabel("Document"))
+        self.addWidget(self.scetch_slot, self.push)
         self.connect(self.push, QtCore.SIGNAL("clicked()"), self.show)
-        self.manipulator.output = self.output
+        self.scetch_slot.output = self.output
 
     def show(self):
-        if self.document.input:
-            doc = self.document.input
+        if self.doc_slot.input:
+            doc = self.doc_slot.input
             if self.sketch is None:
                 self.sketch = doc.addObject('Sketcher::SketchObject', 'Sketch')
             Gui.getDocument(doc.Name).setEdit(self.sketch.Name)
@@ -34,137 +33,159 @@ class SketcherNode(BaseNode):
     def output(self):
         return(self.sketch)
 
+    def delete(self):
+        if self.sketch:
+            if self.doc_slot.input:
+                self.doc_slot.input.removeObject(self.sketch.Name)
+        super(SketcherNode, self).delete()
+
 
 class DocumentNode(BaseNode):
     def __init__(self, scene):
-        super(DocumentNode, self).__init__(scene, "Document", "yellow")
+        super(DocumentNode, self).__init__(scene, "document", "green")
         self.doc = None
-        self.manipulator = ManipulatorNodeWidget(outp=True,  scene=scene)
-        self.layout.addWidget(self.manipulator)
-        self.add_to_scene()
-        self.manipulator.output = self.output
+        self.output_slot = SlotOutput(scene)
+        self.press = QtGui.QPushButton('show document')
+        self.addWidget(self.output_slot, self.press)
+        self.output_slot.output = self.output
+        self.connect(self.press, QtCore.SIGNAL('clicked()'), self.show_doc)
 
     def output(self):
-        if not self.doc:
-            self.doc = App.newDocument()
         return self.doc
 
+    def delete(self):
+        super(DocumentNode, self).delete()
+        if self.doc:
+            App.closeDocument(self.doc.Name)
 
-class ExtrudeNode(BaseNode):
-    def __init__(self, scene):
-        super(ExtrudeNode, self).__init__(scene, "Extrude", "blue")
-        self.height = QtGui.QDoubleSpinBox()
-        self.height.setValue(10)
-        self.manipulator = ManipulatorNodeWidget(inp=True, outp=True, scene=scene)
-        self.height_man =  ManipulatorNodeWidget(widget=self.height, inp=True, scene=scene)
-        self.layout.addWidget(self.manipulator)
-        self.layout.addWidget(self.height_man)
-        self.add_to_scene()
-        self.manipulator.output = self.output
+    def show_doc(self):
+        print("haha") #TODO
+        # Gui.ActiveDocument = Gui.getDocument(self.doc.Name).setEdit()
 
-    def output(self):
-        sketch = self.manipulator.input
-        if sketch:
-            face =  Part.Face(sketch.Shape.Wires)
-            h = self.height_man.input
-            if h is None:
-                h = self.height.value()
-            self.height.setValue(h)
-            shape = face.extrude(App.Vector(0,0,h))
-            return shape
+    def add_to_scene(self):
+        self.doc = App.newDocument()
+        super(DocumentNode, self).add_to_scene()
+        self.back_to_nodes()
+
 
 
 class ExtrudeNode(BaseNode):
     def __init__(self, scene):
-        super(ExtrudeNode, self).__init__(scene, "Extrude", "blue")
+        super(ExtrudeNode, self).__init__(scene, "extrude", "blue")
         self.height = QtGui.QDoubleSpinBox()
         self.height.setValue(10)
-        self.manipulator = ManipulatorNodeWidget(inp=True, outp=True, scene=scene)
-        self.height_man =  ManipulatorNodeWidget(widget=self.height, inp=True, scene=scene)
-        self.layout.addWidget(self.manipulator)
-        self.layout.addWidget(self.height_man)
-        self.add_to_scene()
-        self.manipulator.output = self.output
+        self.sketch_slot = SlotInput(scene)
+        self.height_slot = SlotInput(scene)
+        self.shape_out = SlotOutput(scene)
+        self.addWidget(self.height, self.height_slot)
+        self.addWidget(self.sketch_slot, QtGui.QLabel("sketch"))
+        self.addWidget(self.shape_out, QtGui.QLabel("shape"))
+        self.shape_out.output = self.output
 
     def output(self):
-        sketch = self.manipulator.input
+        if self.height_slot.input:
+            self.height.hide()
+        sketch = self.sketch_slot.input
         if sketch:
-            face =  Part.Face(sketch.Shape.Wires)
-            h = self.height_man.input
-            if h is None:
-                h = self.height.value()
+            face = Part.Face(sketch.Shape.Wires)
+            h = self.height_slot.input or self.height.value()
             self.height.setValue(h)
-            shape = face.extrude(App.Vector(0,0,h))
+            shape = face.extrude(App.Vector(0, 0, h))
             return shape
 
 
 class SphereNode(BaseNode):
     def __init__(self, scene):
-        super(SphereNode, self).__init__(scene=scene, titel="Sphere", color="yellow")
+        super(SphereNode, self).__init__(scene, "sphere", "yellow")
         self.radius = QtGui.QDoubleSpinBox()
         self.radius.setValue(3)
-        self.sphere_manipulator = ManipulatorNodeWidget(widget=self.radius, outp=True,  scene=scene)
-        self.radius.setValue(10.)
-        self.layout.addWidget(self.sphere_manipulator)
-        self.add_to_scene()
-        self.sphere_manipulator.output = self.output
+        self.radius_slot = SlotInput(scene)
+        self.shape_out = SlotOutput(scene)
+        self.addWidget(self.radius, self.radius_slot)
+        self.addWidget(self.shape_out, QtGui.QLabel('shape'))
+        self.shape_out.output = self.output
 
     def output(self):
-        return Part.makeSphere(self.radius.value())
-
-    def add_to(self, scene):
-        item = NodeProxyWidget(self)
-        scene.addItem(item)
+        r = self.radius_slot.input or self.radius.value()
+        self.radius.setValue(r)
+        return Part.makeSphere(r)
 
 
-class CylinderNode(SphereNode):
+class CylinderNode(BaseNode):
     def __init__(self, scene):
-        super(CylinderNode, self).__init__(scene)
-        self.titel.setText("Cylinder")
-        self.c_height = QtGui.QDoubleSpinBox()
-        self.c_height.setValue(10.)
-        self.layout.addWidget(ManipulatorNodeWidget(widget=self.c_height))
+        super(CylinderNode, self).__init__(scene, "cylinder", "yellow")
+        self.height = QtGui.QDoubleSpinBox()
+        self.height.setValue(10.)
+        self.height_slot = SlotInput(scene)
+        self.radius = QtGui.QDoubleSpinBox()
+        self.radius.setValue(3)
+        self.radius_slot = SlotInput(scene)
+        self.shape_out = SlotOutput(scene)
+        self.addWidget(self.height, self.height_slot)
+        self.addWidget(self.radius, self.radius_slot)
+        self.addWidget(self.shape_out, QtGui.QLabel('shape'))
+        self.shape_out.output = self.output
 
     def output(self):
-        return Part.makeCylinder(self.radius.value(), self.c_height.value())
+        h = self.height_slot.input or self.height.value()
+        r = self.radius_slot.input or self.radius.value()
+        self.height.setValue(h)
+        self.radius.setValue(r)
+        return Part.makeCylinder(r, h)
 
 
 class ViewerNode(BaseNode):
     def __init__(self, scene):
-        super(ViewerNode, self).__init__(scene=scene, titel="Viewer", color="yellow")
+        super(ViewerNode, self).__init__(scene, "viewer", "yellow")
         self.obj = None
         self.push = QtGui.QPushButton("show shape")
-        self.manipulator = ManipulatorNodeWidget(widget=self.push, inp=True,  scene=scene)
-        self.document = ManipulatorNodeWidget(widget=QtGui.QLabel("document"), inp=True,  scene=scene)
-        self.layout.addWidget(self.manipulator)
-        self.layout.addWidget(self.document)
-        self.add_to_scene()
+        self.shape_slot = SlotInput(scene)
+        self.doc_slot = SlotInput(scene)
+        self.addWidget(self.push)
+        self.addWidget(self.shape_slot, QtGui.QLabel('shape'))
+        self.addWidget(self.doc_slot, QtGui.QLabel('document'))
         self.connect(self.push, QtCore.SIGNAL("clicked()"), self.show)
 
     def show(self):
-        if self.manipulator.input is not None:
-            if self.document.input is not None:
+        if self.doc_slot.input is not None:
+            if self.shape_slot.input is not None:
                 if not self.obj:
-                    self.obj = self.document.input.addObject("Part::Feature", "item")
-                self.obj.Shape = self.manipulator.input
+                    self.obj = self.doc_slot.input.addObject("Part::Feature", "item")
+                self.obj.Shape = self.shape_slot.input
+            else:
+                if self.obj:
+                    self.doc_slot.input.removeObject(self.obj.Name)
+                    self.obj = None
+        else:
+            self.obj = None
+
+    def delete(self):
+        print("loeschen startet")
+        if self.doc_slot.input is not None:
+            print(1)
+            if self.obj is not None:
+                print("jskdfnskjfn")
+                self.doc_slot.input.removeObject(self.obj.Name)
+        super(ViewerNode, self).delete()
 
 
 class CutNode(BaseNode):
     def __init__(self, scene):
-        super(CutNode, self).__init__(scene=scene, titel="Cut", color="blue")
-        self.shape1 = ManipulatorNodeWidget(inp=True, outp=True,  scene=scene)
-        self.shape2 = ManipulatorNodeWidget(inp=True,  scene=scene)
-        self.layout.addWidget(self.shape1)
-        self.layout.addWidget(self.shape2)
-        self.shape1.output = self.output
-        self.add_to_scene()
+        super(CutNode, self).__init__(scene, "Cut", "blue")
+        self.shape1_slot = SlotInput(scene)
+        self.shape2_slot = SlotInput(scene)
+        self.out_slot = SlotOutput(scene)
+        self.addWidget(self.shape1_slot, QtGui.QLabel('shape'))
+        self.addWidget(self.shape2_slot, QtGui.QLabel('shape'))
+        self.addWidget(self.out_slot, QtGui.QLabel('shape'))
+        self.out_slot.output = self.output
 
     def output(self):
-        if None in (self.shape1.input, self.shape2.input):
+        if None in (self.shape1_slot.input, self.shape2_slot.input):
             return None
         else:
             #both are shapes and have methode cut
-            return self.shape1.input.cut(self.shape2.input)
+            return self.shape1_slot.input.cut(self.shape2_slot.input)
 
 ButtonDict = {
     "Sphere": SphereNode,

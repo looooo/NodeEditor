@@ -3,28 +3,32 @@ import sys
 from PySide import QtGui, QtCore
 import math
 
+
+#TODO:
+#dragging the sdene
+#triggerfunc for dynamic update
+#cached properties
+#find bugs
+
 class BaseNode(QtGui.QWidget):
-    def __init__(self, scene, titel="base widget", color="red"):
+    def __init__(self, scene, titel="base widget", color="green"):
         super(BaseNode, self).__init__()
         self.setObjectName("BaseWidget")
         self.scene = scene
-        self.color=color
-        self.layout = QtGui.QVBoxLayout(self)
+        self.color = color
+        self.layout = QtGui.QGridLayout(self)
         self.titel = QtGui.QLabel(titel)
         self.titel.setAlignment(QtCore.Qt.AlignCenter)
-        self.layout.addWidget(self.titel)
+        self.layout.addItem(QtGui.QSpacerItem(10, 10), 0, 0)
+        self.layout.addItem(QtGui.QSpacerItem(10, 10), 0, 2)
+        self.layout.addWidget(self.titel, 0, 1)
         self.layout.setSpacing(0)
         self.setStyleSheet(
             """QWidget#BaseWidget {background-color:transparent};
             """)
         self.item = None
+        self.is_hidden = False
 
-    def add_to_scene(self):
-        self.item = NodeProxyWidget(self)
-        self.scene.addItem(self.item)
-
-    def delete(self):
-        self.scene.removeItem(self.item)
 
     def paintEvent(self, ev):
         painter = QtGui.QPainter(self)
@@ -35,25 +39,120 @@ class BaseNode(QtGui.QWidget):
         painter.setPen(pen)
         rect = painter.drawRoundedRect(self.rect(), 20, 20)
 
-    def trigger(self):
-        #find all outputs
-        #call theire trigger 
-        #so in the end the last element desides what is recomputed
-        pass
+    @property
+    def slots(self):
+        slots = []
+        self.find_slots(self, arr=slots)
+        return(slots)
+
+    @staticmethod
+    def find_slots(widget, arr=[]):
+        for child in widget.children():
+            if isinstance(child, Slot):
+                arr.append(child)
+            else:
+                BaseNode.find_slots(child, arr=arr)
+
+    def addWidget(self, *widgets):
+        num_row = self.layout.rowCount()
+        for wid in widgets:
+            if isinstance(wid, SlotInput):
+                self.layout.addWidget(wid, num_row, 0)
+            elif isinstance(wid, SlotOutput):
+                self.layout.addWidget(wid, num_row, 2)
+            else:
+                self.layout.addWidget(wid, num_row, 1)
+
+    def add_to_scene(self):
+        self.item = NodeProxyWidget(self)
+        self.scene.addItem(self.item)
+
+    def delete(self):
+        # add stuff you want to do before deleting the object
+        self.scene.removeItem(self.item)
+
+    def get_lower_connected(self):
+        arr = [i.get_connected_nodes() for i in self.slots if isinstance(i, SlotOutput)]
+        arr1 = []
+        for a in arr:
+            arr1 += a
+        return(arr1)
+
+
+    def trigger(self, nodes):
+        for i in nodes:
+            i.trigger(i.get_lower_connected())
+
+    def get_view(self):
+        try:
+            return self.scene.views()[0]
+        except:
+            return None
+
+    def get_mdi_sub_window(self):
+        try:
+            return self.get_view().parent()
+        except:
+            return None
+
+    def get_mdi_widget(self):
+        try:
+            return self.get_mdi_sub_window().parent().parent()
+        except:
+            return None
+
+    def back_to_nodes(self):
+        self.get_mdi_widget().setActiveSubWindow(self.get_mdi_sub_window())
+
+
+    def minimize(self):
+        for i in self.children():
+            if isinstance(i, QtGui.QWidget):
+                if not isinstance(i, (Slot, QtGui.QLabel)):
+                    if self.is_hidden:
+                        i.show()
+                    else:
+                        i.hide()
+        self.adjustSize()
+        self.item.update_lines()
+        self.is_hidden = not self.is_hidden
+
+
 
 
 class NodeScene(QtGui.QGraphicsScene):
     """A GraphicsScene which has a list of all the nodes"""
     def __init__(self):
         super(NodeScene, self).__init__()
-        self.setSceneRect(-100, -100, 1000, 1000)
+        self.setSceneRect(-0, 0, 2000, 2000)
         self.node_list = []
 
 
 class NodeView(QtGui.QGraphicsView):
+    def __init__(self):
+        super(NodeView, self).__init__()
+        self.setDragMode(QtGui.QGraphicsView.DragMode.ScrollHandDrag)
+        self.add_item = None
+
+    def mousePressEvent(self, event):
+        if self.add_item:
+            self.add_item.add_to_scene()
+            self.add_item.item.setPos(event.pos())
+            self.add_item = None
+        super(NodeView, self).mousePressEvent(event)
+
+    # def keyPressEvent(self, event):
+    #     print(key)
+    #     if event.key() == 16777223:
+    #         self.add_item = None                                          not working
+    #     super(NodeView, self).keyPressEvent(event)
+
+
+
     def wheelEvent(self, event):
         scale_value = 1 + (event.delta() / 5000)
         self.scale(scale_value, scale_value)
+
 
 
 class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
@@ -61,9 +160,12 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
     def __init__(self, widget=None, parent=None):
         super(NodeProxyWidget, self).__init__(parent=parent)
         self.setWidget(widget)
+        self.setPos(200, 200)
         self.current_pos = None
 
     def mousePressEvent(self, event):
+        # this node proxy widget deletes the handler from the widget
+        # so there is the right mouse handling
         if event.buttons() == QtCore.Qt.RightButton:
             self.current_pos = event.pos()
         else:
@@ -74,40 +176,34 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
         if event.buttons() == QtCore.Qt.RightButton:
             self.setPos(self.mapToParent(event.pos()) - self.current_pos)
             for i in range(2):
-                for anchor_node in self.anchor_nodes:
-                    for line in anchor_node.line:
-                        line.update_line()
+                self.update_lines()
+
 
         else:
             super(NodeProxyWidget, self).mouseMoveEvent(event)
 
-    @property
-    def anchor_nodes(self):
-        anchor_nodes = []
-        self.find_anchor_nodes(self.widget(), arr=anchor_nodes)
-        return(anchor_nodes)
+    def update_lines(self):
+        for anchor_node in self.widget().slots:
+            for line in anchor_node.line:
+                line.update_line()
 
-    @staticmethod
-    def find_anchor_nodes(widget, arr=[]):
-        for child in widget.children():
-            if isinstance(child, NodeAnchor):
-                arr.append(child)
-            else:
-                NodeProxyWidget.find_anchor_nodes(child, arr=arr)
 
     def keyPressEvent(self, event):
         if event.key() == 16777223:
-            for i in self.anchor_nodes:
-                self.widget().scene.node_list.remove(i)
-                i.delete_node()
             self.widget().delete()
+            for i in self.widget().slots:
+                i.delete_node()
+                self.widget().scene.node_list.remove(i)
+
+    def mouseDoubleClickEvent(self, event):
+        self.widget().minimize()
 
 
-class NodeAnchor(QtGui.QCheckBox):
-    """a RadioButton which has some connection info and connections to other NodeAnchors
+class Slot(QtGui.QCheckBox):
+    """a Checkbox which has some connection info and connections to other Slots
             make new connection with left click"""
-    def __init__(self, parent=None, scene=None):
-        super(NodeAnchor, self).__init__(parent)
+    def __init__(self, scene=None):
+        super(Slot, self).__init__()
         self.scene = scene
         self.line = []
         self.connection = False
@@ -170,8 +266,8 @@ class NodeAnchor(QtGui.QCheckBox):
             node2.setChecked(0)
 
     def delete_node(self):
-        for i in self.line:
-            self.delete_line(i)
+        while self.line:
+            self.delete_line(self.line[0])
 
 
 class NodeLine(QtGui.QGraphicsLineItem):
@@ -195,21 +291,21 @@ def PointNorm(p1, p2):
     return(math.sqrt((p1.x() - p2.x()) ** 2 + (p1.y() - p2.y()) ** 2))
 
 
-class NodeInput(NodeAnchor):
+class SlotInput(Slot):
     """this node only accept one line"""
     def mousePressEvent(self, event):
         if len(self.line) == 0:
-            super(NodeInput, self).mousePressEvent(event)
+            super(SlotInput, self).mousePressEvent(event)
         else:
             self.delete_line(self.line[0])
-            super(NodeInput, self).mousePressEvent(event)
+            super(SlotInput, self).mousePressEvent(event)
 
     def mouseMoveEvent(self, event):
-        super(NodeInput, self).mouseMoveEvent(event)
-        if not isinstance(self.connection_node, NodeOutput):
+        super(SlotInput, self).mouseMoveEvent(event)
+        if not isinstance(self.connection_node, SlotOutput):
             self.connection_node = None
 
-    def get_connected_Node(self):
+    def get_connected_node(self):
         if len(self.line) > 0:
             node1 = self.line[0].node1
             node2 = self.line[0].node2
@@ -219,77 +315,73 @@ class NodeInput(NodeAnchor):
                 return node1
         return None
 
+    @property
+    def input(self):
+        """calls the output of connectet input"""
+        connected_node = self.get_connected_node()
+        if connected_node:
+            #it is not possible to connect to an input
+            return connected_node.output()
+        return None
 
-class NodeOutput(NodeAnchor):
+
+class SlotOutput(Slot):
+    def __init__(self, scene):
+        super(SlotOutput, self).__init__(scene=scene)
+        #set this output fuction to something else.
+        self.output = self.fakefunc
+
     def mouseReleaseEvent(self, event):
         if self.connection:
             if self.connection_node is not None:
                 if len(self.connection_node.line) != 0:
                     self.connection_node.delete_line(self.connection_node.line[0])
-        super(NodeOutput, self).mouseReleaseEvent(event)
+        super(SlotOutput, self).mouseReleaseEvent(event)
 
     def mouseMoveEvent(self, event):
-        super(NodeOutput, self).mouseMoveEvent(event)
-        if not isinstance(self.connection_node, NodeInput):
+        super(SlotOutput, self).mouseMoveEvent(event)
+        if not isinstance(self.connection_node, SlotInput):
             self.connection_node = None
 
-
-class ManipulatorNodeWidget(QtGui.QWidget):
-    def __init__(self, widget=QtGui.QWidget(), inp=False, outp=False, scene=None, parent=None):
-        super(ManipulatorNodeWidget, self).__init__(parent=parent)
-        self.scene = scene
-        self.layout = QtGui.QHBoxLayout(self)
-        self.inp = None
-        self.outp = None
-        if inp:
-            self.inp = NodeInput(self, self.scene)
-            self.layout.addWidget(self.inp)
-        else:
-            self.layout.addWidget(QtGui.QWidget())
-        self.base_widget = widget or QtGui.QWidget()
-        self.base_widget.setParent(self)
-        self.layout.addWidget(self.base_widget)
-        if outp:
-            self.outp = NodeOutput(self, self.scene)
-            self.layout.addWidget(self.outp)
-        else:
-            self.layout.addWidget(QtGui.QWidget())
-        self.output = self.fakefunc
-
-    @property
-    def input(self):
-        """calls the o
-        utput of connectet input"""
-        print(self.inp)
-        if self.inp:
-            connected_node = self.inp.get_connected_Node()
-            if connected_node:
-                connected_manipulator_wid = connected_node.parent()
-                return connected_manipulator_wid.output()
-        return None
+    def get_connected_nodes(self):
+        arr = []
+        for line in self.line:
+            node1 = line.node1
+            node2 = line.node2
+            if node1 == self:
+                arr.append(node2)
+            else:
+                arr.append(node1)
+        return arr
 
     @staticmethod
     def fakefunc():
         return None
 
+# this is not good:
+# every input socket needs a input and every output socket needs an output
+# this has to be changed.
+# + it must be possible to say what should happen onconnect
+
+#Any deletion of a Node will look downstream for influenced nodes and will call the last input function
+#this is the same as for the trigger function
+
+from nodeeditor.python import value
 
 if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     scene = NodeScene()
 
-    for i in range(2):
-        wid = QtGui.QWidget()
-        lay = QtGui.QHBoxLayout(wid)
-        lay.addWidget(NodeInput(scene=scene))
-        scene.addItem(NodeProxyWidget(wid))
-
-    for i in range(2):
-        wid = QtGui.QWidget()
-        lay = QtGui.QHBoxLayout(wid)
-        lay.addWidget(NodeOutput(scene=scene))
-        scene.addItem(NodeProxyWidget(wid))
-
     view = NodeView()
     view.setScene(scene)
     view.show()
+
+    a = value.SliderNode(scene)
+    a.minimize()
+    a.minimize()
+    value.GetValueNode(scene)
+    value.AddNode(scene)
+
+
+
     sys.exit(app.exec_())

@@ -57,7 +57,7 @@ class NodeWindow(object):
             layout.setSpacing(0)
             self.NodeWidget.addTab(widget, category)
             for node in ButtonDict[category]:
-                layout.addWidget(BaseNodeButton(name=node, scene=self.scene, Node=ButtonDict[category][node]))
+                layout.addWidget(BaseNodeButton(name=node, scene=self.scene, view=self.view, Node=ButtonDict[category][node]))
         return dockWidget
 
     def clean(self):
@@ -70,11 +70,14 @@ class NodeWindow(object):
 
 
 class BaseNodeButton(QtGui.QPushButton):
-    def __init__(self, name="BaseNode", scene=None, Node=value.BaseNode):
+    def __init__(self, name="BaseNode", scene=None, view=None, Node=value.BaseNode):
         super(BaseNodeButton, self).__init__(name)
         self.scene = scene
+        self.view = view
         self.Node = Node
         self.clicked.connect(self.add)
 
     def add(self):
-        self.Node(self.scene)
+        add_item = self.Node(self.scene)
+        self.view.add_item = add_item
+
