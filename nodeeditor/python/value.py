@@ -4,7 +4,7 @@ from nodeeditor import NodeProxyWidget, SlotOutput, SlotInput, BaseNode
 
 class SliderNode(BaseNode):
     def __init__(self, scene):
-        super(SliderNode, self).__init__(scene=scene, titel="SliderNode")
+        super(SliderNode, self).__init__(scene=scene, title="SliderNode")
         self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
         self.outp_slot = SlotOutput(scene)
         self.value = QtGui.QLabel(str(self.slider.value()))
@@ -60,8 +60,51 @@ class AddNode(BaseNode):
         return 0.
 
 
+class ListNode(BaseNode):
+    def __init__(self, scene):
+        super(ListNode, self).__init__(scene=scene, title="List")
+        slot = SlotInput(scene)
+        slot.setParent(self)
+        self.push = QtGui.QPushButton()
+        slot.got_connected = self.update_slots
+        self.slot_list = [slot]
+        self.slot_out = SlotOutput(scene)
+        self.addWidget(self.push)
+        self.addWidget(self.slot_out)
+        self.layout.addWidget(self.slot_list[0], 3, 0)
+        self.slot_out.output = self.output
+        self.connect(self.push, QtCore.SIGNAL("clicked()"), self.update_slots)
+
+    def update_slots(self):
+        if len(self.slot_list) == 1 and self.slot_list[0].input is None:
+            return
+        else:
+            for i in self.children():
+                if isinstance(i, SlotInput):
+                    print(i.input)
+                    if i.input == None:
+                        if i in self.scene.node_list:
+                            self.scene.node_list.remove(i)
+                        else:
+                            print("jezt")
+                        if i in self.slot_list:
+                            self.slot_list.remove(i)
+                        self.layout.removeWidget(i)
+                        i.deleteLater()
+            slot = SlotInput(self.scene)
+            slot.got_connected = self.update_slots
+            slot.setParent(self)
+            self.slot_list.append(slot)
+            self.layout.addWidget(slot, self.layout.rowCount() + 2, 0)
+            self.adjustSize()
+            self.update_lines()
+
+    def output(self):
+        return [i.input for i in self.slot_list if i.input is not None]
+
 ButtonDict = {
     "Slider": SliderNode,
     "GetValue": GetValueNode,
-    "Add": AddNode
+    "Add": AddNode,
+    "List": ListNode
 }

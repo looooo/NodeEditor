@@ -11,17 +11,17 @@ import math
 #find bugs
 
 class BaseNode(QtGui.QWidget):
-    def __init__(self, scene, titel="base widget", color="green"):
+    def __init__(self, scene, title="base widget", color="green"):
         super(BaseNode, self).__init__()
         self.setObjectName("BaseWidget")
         self.scene = scene
         self.color = color
         self.layout = QtGui.QGridLayout(self)
-        self.titel = QtGui.QLabel(titel)
-        self.titel.setAlignment(QtCore.Qt.AlignCenter)
+        self.title = QtGui.QLabel(title)
+        self.title.setAlignment(QtCore.Qt.AlignCenter)
         self.layout.addItem(QtGui.QSpacerItem(10, 10), 0, 0)
         self.layout.addItem(QtGui.QSpacerItem(10, 10), 0, 2)
-        self.layout.addWidget(self.titel, 0, 1)
+        self.layout.addWidget(self.title, 0, 1)
         self.layout.setSpacing(0)
         self.setStyleSheet(
             """QWidget#BaseWidget {background-color:transparent};
@@ -117,6 +117,11 @@ class BaseNode(QtGui.QWidget):
         self.item.update_lines()
         self.is_hidden = not self.is_hidden
 
+    def update_lines(self):
+        for slot in self.slots:
+            for line in slot.line:
+                line.update_line()
+
 
 
 
@@ -129,10 +134,12 @@ class NodeScene(QtGui.QGraphicsScene):
 
 
 class NodeView(QtGui.QGraphicsView):
-    def __init__(self):
+    def __init__(self, scene):
         super(NodeView, self).__init__()
+        self.setScene(scene)
         self.setDragMode(QtGui.QGraphicsView.DragMode.ScrollHandDrag)
-        self.add_item = None
+        self.add_item = None 
+        self.setRenderHints(QtGui.QPainter.HighQualityAntialiasing)
 
     def mousePressEvent(self, event):
         if self.add_item:
@@ -183,9 +190,7 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
             super(NodeProxyWidget, self).mouseMoveEvent(event)
 
     def update_lines(self):
-        for anchor_node in self.widget().slots:
-            for line in anchor_node.line:
-                line.update_line()
+        self.widget().update_lines()
 
 
     def keyPressEvent(self, event):
@@ -194,6 +199,7 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
             for i in self.widget().slots:
                 i.delete_node()
                 self.widget().scene.node_list.remove(i)
+        super(NodeProxyWidget, self).keyPressEvent(event)
 
     def mouseDoubleClickEvent(self, event):
         self.widget().minimize()
@@ -202,13 +208,25 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
 class Slot(QtGui.QCheckBox):
     """a Checkbox which has some connection info and connections to other Slots
             make new connection with left click"""
-    def __init__(self, scene=None):
+    def __init__(self, scene=None, color='black'):
         super(Slot, self).__init__()
+        self.color = color
         self.scene = scene
         self.line = []
         self.connection = False
         self.connection_node = None
         scene.node_list.append(self)
+
+    def paintEvent(self, ev):
+        painter = QtGui.QPainter(self)
+        brush = QtGui.QBrush(QtGui.QColor(self.color), QtCore.Qt.BrushStyle.SolidPattern)
+        painter.setBrush(brush)
+        pen = QtGui.QPen()
+        pen.setColor(self.color)
+        painter.setPen(pen)
+        rect = self.rect()
+        rect.adjust(4,4,-4,-4)
+        painter.drawRoundedRect(rect, 4, 4)
 
     @property
     def global_pos(self):
@@ -249,25 +267,36 @@ class Slot(QtGui.QCheckBox):
                 self.line[-1] = line
                 self.setChecked(1)
                 self.connection_node.setChecked(1)
+                self.got_connected()
+                self.connection_node.got_connected()
                 self.connection_node = None
             self.connection = False
         for i, p in enumerate(self.line):
             if not isinstance(p, NodeLine):
                 self.line.pop(i)
 
+
     def delete_line(self, line):
         node1 = line.node1
         node2 = line.node2
         node1.line.remove(line)
         node2.line.remove(line)
-        if len(node1.line) == 0:
-            node1.setChecked(0)
-        if len(node2.line) == 0:
-            node2.setChecked(0)
+        if isinstance(node1, SlotInput):
+            print(node1.input)
+        if isinstance(node2, SlotInput):
+            print(node2.input)
+        node1.got_unconnected()
+        node2.got_unconnected()
 
     def delete_node(self):
         while self.line:
             self.delete_line(self.line[0])
+
+    def got_connected(self):
+        pass
+
+    def got_unconnected(self):
+        pass
 
 
 class NodeLine(QtGui.QGraphicsLineItem):
@@ -326,8 +355,8 @@ class SlotInput(Slot):
 
 
 class SlotOutput(Slot):
-    def __init__(self, scene):
-        super(SlotOutput, self).__init__(scene=scene)
+    def __init__(self, scene, color="black"):
+        super(SlotOutput, self).__init__(scene=scene, color=color)
         #set this output fuction to something else.
         self.output = self.fakefunc
 
@@ -372,15 +401,12 @@ if __name__ == "__main__":
     app = QtGui.QApplication(sys.argv)
     scene = NodeScene()
 
-    view = NodeView()
-    view.setScene(scene)
+    view = NodeView(scene)
     view.show()
 
-    a = value.SliderNode(scene)
-    a.minimize()
-    a.minimize()
-    value.GetValueNode(scene)
-    value.AddNode(scene)
+    value.SliderNode(scene).add_to_scene()
+    value.GetValueNode(scene).add_to_scene()
+    value.AddNode(scene).add_to_scene()
 
 
 

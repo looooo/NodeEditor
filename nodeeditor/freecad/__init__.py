@@ -3,14 +3,18 @@ __ALL__ = ["part", "value", "NodeWindow"]
 from PySide import QtGui, QtCore
 from nodeeditor import NodeView, NodeScene
 from nodeeditor.python import value
-from nodeeditor.freecad import part
+from nodeeditor.freecad import part, vector, operator
 import FreeCADGui as Gui
 
 
 ButtonDict = {
     "Value": value.ButtonDict,
+    "Vector": vector.ButtonDict,
+    "Operator": operator.ButtonDict,
     "Part": part.ButtonDict
+
 }
+
 
 class NodeWindow(object):
     def __init__(self, winTitle="NodeView"):
@@ -18,8 +22,7 @@ class NodeWindow(object):
         mdi = self.getMdiArea()
 
         self.scene = NodeScene()
-        self.view = NodeView()
-        self.view.setScene(self.scene)
+        self.view = NodeView(self.scene)
         self.view.setWindowTitle(winTitle)
         self.sub = mdi.addSubWindow(self.view)
         self.NodeWidget = QtGui.QTabWidget()
@@ -50,7 +53,7 @@ class NodeWindow(object):
         self.NodeWidget.setTabPosition(QtGui.QTabWidget.East)
         dockWidget = QtGui.QDockWidget()
         dockWidget.setWidget(self.NodeWidget)
-        for category in ButtonDict:
+        for i, category in enumerate(ButtonDict):
             widget = QtGui.QWidget()
             layout = QtGui.QVBoxLayout(widget)
             layout.setAlignment(QtCore.Qt.AlignTop)
