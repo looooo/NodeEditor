@@ -281,10 +281,6 @@ class Slot(QtGui.QCheckBox):
         node2 = line.node2
         node1.line.remove(line)
         node2.line.remove(line)
-        if isinstance(node1, SlotInput):
-            print(node1.input)
-        if isinstance(node2, SlotInput):
-            print(node2.input)
         node1.got_unconnected()
         node2.got_unconnected()
 

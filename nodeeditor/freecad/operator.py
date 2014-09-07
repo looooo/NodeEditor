@@ -48,9 +48,9 @@ class DocumentNode(BaseNode):
         self.doc = None
         self.output_slot = SlotOutput(scene)
         self.press = QtGui.QPushButton('show document')
-        self.addWidget(self.output_slot, self.press)
+        # self.addWidget(self.output_slot, self.press)
         self.output_slot.output = self.output
-        self.connect(self.press, QtCore.SIGNAL('clicked()'), self.show_doc)
+        # self.connect(self.press, QtCore.SIGNAL('clicked()'), self.show_doc)
 
     def output(self):
         return self.doc
@@ -99,6 +99,7 @@ class RevolveNode(BaseNode):
     def __init__(self, scene):
         super(RevolveNode, self).__init__(scene, "revolution", "blue")
         self.angle = QtGui.QDoubleSpinBox()
+        self.angle.setMaximum(360)
         self.angle.setValue(360)
         self.sketch_slot = SlotInput(scene)
         self.angle_slot = SlotInput(scene)
