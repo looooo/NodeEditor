@@ -16,7 +16,7 @@ class SphereNode(BaseNode):
         self.shape_out.output = self.output
 
     def output(self):
-        r = self.radius_slot.input or self.radius.value()
+        r = self.radius_slot.input() or self.radius.value()
         self.radius.setValue(r)
         return Part.makeSphere(r)
 
@@ -37,8 +37,8 @@ class CylinderNode(BaseNode):
         self.shape_out.output = self.output
 
     def output(self):
-        h = self.height_slot.input or self.height.value()
-        r = self.radius_slot.input or self.radius.value()
+        h = self.height_slot.input() or self.height.value()
+        r = self.radius_slot.input() or self.radius.value()
         self.height.setValue(h)
         self.radius.setValue(r)
         return Part.makeCylinder(r, h)

@@ -23,23 +23,33 @@ class SketcherNode(BaseNode):
         self.addWidget(self.scetch_slot, self.push)
         self.connect(self.push, QtCore.SIGNAL("clicked()"), self.show)
         self.scetch_slot.output = self.output
+        self.scetch_slot.help_ = self.help
 
     def show(self):
-        if self.doc_slot.input:
-            doc = self.doc_slot.input
+        doc = self.doc_slot.input()
+        if doc:
             if self.sketch is None:
                 self.sketch = doc.addObject('Sketcher::SketchObject', 'Sketch')
             Gui.getDocument(doc.Name).setEdit(self.sketch.Name)
             Gui.activateWorkbench("SketcherWorkbench")
 
     def output(self):
-        return(self.sketch)
+        return self.sketch
 
     def delete(self):
+        doc = self.doc_slot.input()
         if self.sketch:
-            if self.doc_slot.input:
-                self.doc_slot.input.removeObject(self.sketch.Name)
+            if doc:
+                try:
+                    doc.removeObject(self.sketch.Name)
+                except Exception:
+                    pass
         super(SketcherNode, self).delete()
+
+    def help(self):
+        return """
+            cyou have to connect this node to a document and thn click the \n
+            button to create the sketch...."""
 
 
 class DocumentNode(BaseNode):
@@ -84,12 +94,13 @@ class ExtrudeNode(BaseNode):
         self.shape_out.output = self.output
 
     def output(self):
-        if self.height_slot.input:
+        height = self.height_slot.input()
+        if height:
             self.height.hide()
-        sketch = self.sketch_slot.input
+        sketch = self.sketch_slot.input()
         if sketch:
             face = Part.Face(sketch.Shape.Wires)
-            h = self.height_slot.input or self.height.value()
+            h = height or self.height.value()
             self.height.setValue(h)
             shape = face.extrude(App.Vector(0, 0, h))
             return shape
@@ -114,16 +125,17 @@ class RevolveNode(BaseNode):
         self.shape_out.output = self.output
 
     def output(self):
-        if self.angle_slot.input:
+        angle = self.angle_slot.input()
+        sketch = self.sketch_slot.input()
+        point = self.point_slot.input() or App.Vector(0, 0, 0)
+        vector = self.vector_slot.input() or App.Vector(1, 0, 0)
+
+        if angle:
             self.angle.hide()
-        sketch = self.sketch_slot.input
         if sketch:
             face = Part.Face(sketch.Shape.Wires)
-            alpha = self.angle_slot.input or self.angle.value()
-            self.angle.setValue(alpha)
-            p = self.point_slot.input or App.Vector(0, 0, 0)
-            v = self.vector_slot.input or App.Vector(0, 1, 0)
-            shape = face.revolve(p, v, alpha)
+            alpha = angle or self.angle.value()
+            shape = face.revolve(point, vector, alpha)
             return shape
 
 
@@ -140,25 +152,28 @@ class ViewerNode(BaseNode):
         self.connect(self.push, QtCore.SIGNAL("clicked()"), self.show)
 
     def show(self):
-        if self.doc_slot.input is not None:
-            if self.shape_slot.input is not None:
+        doc = self.doc_slot.input()
+        shape = self.shape_slot.input() 
+        if doc:
+            if shape:
                 if not self.obj:
-                    self.obj = self.doc_slot.input.addObject("Part::Feature", "item")
-                self.obj.Shape = self.shape_slot.input
+                    self.obj = doc.addObject("Part::Feature", "item")
+                if isinstance(shape, list):
+                    for i in shape:
+                        Part.show(i)
+                self.obj.Shape = shape
             else:
                 if self.obj:
-                    self.doc_slot.input.removeObject(self.obj.Name)
+                    doc.removeObject(self.obj.Name)
                     self.obj = None
         else:
             self.obj = None
 
     def delete(self):
-        print("loeschen startet")
-        if self.doc_slot.input is not None:
-            print(1)
-            if self.obj is not None:
-                print("jskdfnskjfn")
-                self.doc_slot.input.removeObject(self.obj.Name)
+        doc = self.doc_slot.input()
+        if doc:
+            if self.obj:
+                doc.removeObject(self.obj.Name)
         super(ViewerNode, self).delete()
 
 
@@ -174,11 +189,13 @@ class CutNode(BaseNode):
         self.out_slot.output = self.output
 
     def output(self):
-        if None in (self.shape1_slot.input, self.shape2_slot.input):
+        shp1 = self.shape1_slot.input()
+        shp2 = self.shape2_slot.input()
+        if None in (shp1, shp2):
             return None
         else:
             #both are shapes and have methode cut
-            return self.shape1_slot.input.cut(self.shape2_slot.input)
+            return shp1.cut(shp2)
             
 
 ButtonDict = {

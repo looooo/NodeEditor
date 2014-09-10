@@ -194,7 +194,7 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
 
 
     def keyPressEvent(self, event):
-        if event.key() == 16777223:
+        if event.key() == 88:
             self.widget().delete()
             for i in self.widget().slots:
                 i.delete_node()
@@ -340,7 +340,6 @@ class SlotInput(Slot):
                 return node1
         return None
 
-    @property
     def input(self):
         """calls the output of connectet input"""
         connected_node = self.get_connected_node()
@@ -349,12 +348,18 @@ class SlotInput(Slot):
             return connected_node.output()
         return None
 
+    def help_(self):
+        connected_node = self.get_connected_node()
+        if connected_node:
+            #it is not possible to connect to an input
+            return connected_node.help_()
+        return None
+
 
 class SlotOutput(Slot):
     def __init__(self, scene, color="black"):
         super(SlotOutput, self).__init__(scene=scene, color=color)
-        #set this output fuction to something else.
-        self.output = self.fakefunc
+        #set this output fuction to something else
 
     def mouseReleaseEvent(self, event):
         if self.connection:
@@ -379,9 +384,11 @@ class SlotOutput(Slot):
                 arr.append(node1)
         return arr
 
-    @staticmethod
-    def fakefunc():
+    def output(self):
         return None
+
+    def help_(self):
+        return("click me")
 
 # this is not good:
 # every input socket needs a input and every output socket needs an output
@@ -401,8 +408,7 @@ if __name__ == "__main__":
     view.show()
 
     value.SliderNode(scene).add_to_scene()
-    value.GetValueNode(scene).add_to_scene()
-    value.AddNode(scene).add_to_scene()
+    value.HelpNode(scene).add_to_scene()
 
 
 

@@ -70,9 +70,10 @@ class apply_matrix(BaseNode):
 
 
     def output(self):
-        if self.shp_input is not None:
-            mat = self.mat_input.input or App.Matrix()
-            return self.shp_input.input.transformGeometry(mat)
+        shp = self.shp_input.input()
+        if shp:
+            mat = self.mat_input.input() or App.Matrix()
+            return shp.transformGeometry(mat)
 
 
 

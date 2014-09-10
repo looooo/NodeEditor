@@ -7,8 +7,8 @@ class ShapeInput(SlotInput):
 
     def mouseMoveEvent(self, event):
         super(ShapeInput, self).mouseMoveEvent(event)
-        if not isinstance(self.connection_node, ShapeOutput):
-            self.connection_node = None
+        # if not isinstance(self.connection_node, ShapeOutput):
+        #     self.connection_node = None
 
 
 class ShapeOutput(SlotOutput):
@@ -17,5 +17,5 @@ class ShapeOutput(SlotOutput):
 
     def mouseMoveEvent(self, event):
         super(ShapeOutput, self).mouseMoveEvent(event)
-        if not isinstance(self.connection_node, ShapeInput):
-            self.connection_node = None
+        # if not isinstance(self.connection_node, ShapeInput):
+        #     self.connection_node = None
