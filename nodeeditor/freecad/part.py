@@ -5,6 +5,7 @@ from nodeeditor.freecad.slots import ShapeOutput, SlotInput
 
 
 class SphereNode(BaseNode):
+    """return a sphere with a given radius (float)"""
     def __init__(self, scene):
         super(SphereNode, self).__init__(scene, "sphere", "yellow")
         self.radius = QtGui.QDoubleSpinBox()
@@ -22,6 +23,7 @@ class SphereNode(BaseNode):
 
 
 class CylinderNode(BaseNode):
+    """return a cylinder with given height and radius"""
     def __init__(self, scene):
         super(CylinderNode, self).__init__(scene, "cylinder", "yellow")
         self.height = QtGui.QDoubleSpinBox()

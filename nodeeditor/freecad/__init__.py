@@ -12,11 +12,48 @@ ButtonDict = {
     "Vector": vector.ButtonDict,
     "Operator": operator.ButtonDict,
     "Part": part.ButtonDict
-
 }
 
 
-class NodeWindow(object):
+class NodeWindow(QtGui.QWidget):
+    def __init__(self):
+        super(NodeWindow, self).__init__()
+        self.layout = QtGui.QHBoxLayout(self)
+        self.scene = NodeScene()
+        self.view = NodeView(self.scene)
+        self.view.setWindowTitle("NodeWindow")
+        splitter = QtGui.QSplitter(QtCore.Qt.Horizontal)
+        self.layout.addWidget(splitter)
+        splitter.addWidget(self.view)
+        splitter.addWidget(self.buttons)
+        self.show()
+
+    @property
+    def buttons(self):
+        tabWidget = QtGui.QTabWidget()
+        tabWidget.setTabPosition(QtGui.QTabWidget.East)
+        for i, category in enumerate(ButtonDict):
+            print(i)
+            widget = QtGui.QWidget()
+            layout = QtGui.QVBoxLayout(widget)
+            layout.setAlignment(QtCore.Qt.AlignTop)
+            layout.setSpacing(0)
+            tabWidget.addTab(widget, category)
+            for node in ButtonDict[category]:
+                layout.addWidget(BaseNodeButton(name=node, scene=self.scene, view=self.view, Node=ButtonDict[category][node]))
+        return tabWidget
+
+    def clean(self):
+        self.scene = NodeScene()
+        self.view.setScene(self.scene)
+
+    def addToScene(self, object_class):
+        object_class(self.scene)
+
+
+
+
+class NodeWindow2(object):
     def __init__(self, winTitle="NodeView"):
         mainwindow = Gui.getMainWindow() #!!!! PySide returne a widget with self.getMainWIndow() !!!
         mdi = self.getMdiArea()

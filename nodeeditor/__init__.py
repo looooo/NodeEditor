@@ -29,7 +29,6 @@ class BaseNode(QtGui.QWidget):
         self.item = None
         self.is_hidden = False
 
-
     def paintEvent(self, ev):
         painter = QtGui.QPainter(self)
         brush = QtGui.QBrush(QtGui.QColor(self.color), QtCore.Qt.BrushStyle.SolidPattern)
@@ -56,6 +55,7 @@ class BaseNode(QtGui.QWidget):
     def addWidget(self, *widgets):
         num_row = self.layout.rowCount()
         for wid in widgets:
+            wid.setParent(self)
             if isinstance(wid, SlotInput):
                 self.layout.addWidget(wid, num_row, 0)
             elif isinstance(wid, SlotOutput):
@@ -77,7 +77,6 @@ class BaseNode(QtGui.QWidget):
         for a in arr:
             arr1 += a
         return(arr1)
-
 
     def trigger(self, nodes):
         for i in nodes:
@@ -123,45 +122,6 @@ class BaseNode(QtGui.QWidget):
                 line.update_line()
 
 
-
-
-class NodeScene(QtGui.QGraphicsScene):
-    """A GraphicsScene which has a list of all the nodes"""
-    def __init__(self):
-        super(NodeScene, self).__init__()
-        self.setSceneRect(-0, 0, 2000, 2000)
-        self.node_list = []
-
-
-class NodeView(QtGui.QGraphicsView):
-    def __init__(self, scene):
-        super(NodeView, self).__init__()
-        self.setScene(scene)
-        self.setDragMode(QtGui.QGraphicsView.DragMode.ScrollHandDrag)
-        self.add_item = None 
-        self.setRenderHints(QtGui.QPainter.HighQualityAntialiasing)
-
-    def mousePressEvent(self, event):
-        if self.add_item:
-            self.add_item.add_to_scene()
-            self.add_item.item.setPos(event.pos())
-            self.add_item = None
-        super(NodeView, self).mousePressEvent(event)
-
-    # def keyPressEvent(self, event):
-    #     print(key)
-    #     if event.key() == 16777223:
-    #         self.add_item = None                                          not working
-    #     super(NodeView, self).keyPressEvent(event)
-
-
-
-    def wheelEvent(self, event):
-        scale_value = 1 + (event.delta() / 5000)
-        self.scale(scale_value, scale_value)
-
-
-
 class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
     """The QGraphicsProxyWidget allows to get the Widget on the scene"""
     def __init__(self, widget=None, parent=None):
@@ -184,14 +144,11 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
             self.setPos(self.mapToParent(event.pos()) - self.current_pos)
             for i in range(2):
                 self.update_lines()
-
-
         else:
             super(NodeProxyWidget, self).mouseMoveEvent(event)
 
     def update_lines(self):
         self.widget().update_lines()
-
 
     def keyPressEvent(self, event):
         if event.key() == 88:
@@ -295,27 +252,6 @@ class Slot(QtGui.QCheckBox):
         pass
 
 
-class NodeLine(QtGui.QGraphicsLineItem):
-    """ a Line Element to connect Nodes"""
-    def __init__(self, node1, node2, scene=None):
-        super(NodeLine, self).__init__(scene=scene)
-        self.node1 = node1
-        self.node2 = node2
-        self.linef = QtCore.QLineF(node1.global_pos, node2.global_pos)
-        self.setZValue(-1)
-        self.setLine(self.linef)
-        self.delete_line = False
-
-    def update_line(self):
-        self.linef.setP1(self.node1.global_pos)
-        self.linef.setP2(self.node2.global_pos)
-        self.setLine(self.linef)
-
-
-def PointNorm(p1, p2):
-    return(math.sqrt((p1.x() - p2.x()) ** 2 + (p1.y() - p2.y()) ** 2))
-
-
 class SlotInput(Slot):
     """this node only accept one line"""
     def mousePressEvent(self, event):
@@ -352,7 +288,7 @@ class SlotInput(Slot):
         connected_node = self.get_connected_node()
         if connected_node:
             #it is not possible to connect to an input
-            return connected_node.help_()
+            return connected_node.parent().__doc__
         return None
 
 
@@ -388,15 +324,57 @@ class SlotOutput(Slot):
         return None
 
     def help_(self):
-        return("click me")
+        return("connect me")
 
-# this is not good:
-# every input socket needs a input and every output socket needs an output
-# this has to be changed.
-# + it must be possible to say what should happen onconnect
 
-#Any deletion of a Node will look downstream for influenced nodes and will call the last input function
-#this is the same as for the trigger function
+class NodeLine(QtGui.QGraphicsLineItem):
+    """ a Line Element to connect Nodes"""
+    def __init__(self, node1, node2, scene=None):
+        super(NodeLine, self).__init__(scene=scene)
+        self.node1 = node1
+        self.node2 = node2
+        self.linef = QtCore.QLineF(node1.global_pos, node2.global_pos)
+        self.setZValue(-1)
+        self.setLine(self.linef)
+        self.delete_line = False
+
+    def update_line(self):
+        self.linef.setP1(self.node1.global_pos)
+        self.linef.setP2(self.node2.global_pos)
+        self.setLine(self.linef)
+
+
+class NodeScene(QtGui.QGraphicsScene):
+    """A GraphicsScene which has a list of all the nodes"""
+    def __init__(self):
+        super(NodeScene, self).__init__()
+        self.setSceneRect(-0, 0, 2000, 2000)
+        self.node_list = []
+
+
+class NodeView(QtGui.QGraphicsView):
+    def __init__(self, scene):
+        super(NodeView, self).__init__()
+        self.setScene(scene)
+        self.setDragMode(QtGui.QGraphicsView.DragMode.ScrollHandDrag)
+        self.add_item = None 
+        self.setRenderHints(QtGui.QPainter.HighQualityAntialiasing)
+
+    def mousePressEvent(self, event):
+        if self.add_item:
+            self.add_item.add_to_scene()
+            self.add_item.item.setPos(self.mapToScene(event.pos()))
+            self.add_item = None
+        super(NodeView, self).mousePressEvent(event)
+
+    def wheelEvent(self, event):
+        scale_value = 1 + (event.delta() / 5000)
+        self.scale(scale_value, scale_value)
+
+
+def PointNorm(p1, p2):
+    return(math.sqrt((p1.x() - p2.x()) ** 2 + (p1.y() - p2.y()) ** 2))
+
 
 from nodeeditor.python import value
 
@@ -409,6 +387,7 @@ if __name__ == "__main__":
 
     value.SliderNode(scene).add_to_scene()
     value.HelpNode(scene).add_to_scene()
+    value.ListNode(scene).add_to_scene()
 
 
 

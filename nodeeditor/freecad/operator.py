@@ -13,6 +13,7 @@ from nodeeditor.freecad.slots import ShapeInput, ShapeOutput
 
 
 class SketcherNode(BaseNode):
+    """you have to connect this node to a document and thn click the button to create the sketch...."""
     def __init__(self, scene):
         super(SketcherNode, self).__init__(scene, "Sketch", "pink")
         self.sketch = None
@@ -23,7 +24,6 @@ class SketcherNode(BaseNode):
         self.addWidget(self.scetch_slot, self.push)
         self.connect(self.push, QtCore.SIGNAL("clicked()"), self.show)
         self.scetch_slot.output = self.output
-        self.scetch_slot.help_ = self.help
 
     def show(self):
         doc = self.doc_slot.input()
@@ -46,13 +46,8 @@ class SketcherNode(BaseNode):
                     pass
         super(SketcherNode, self).delete()
 
-    def help(self):
-        return """
-            cyou have to connect this node to a document and thn click the \n
-            button to create the sketch...."""
-
-
 class DocumentNode(BaseNode):
+    """this is a document Node."""
     def __init__(self, scene):
         super(DocumentNode, self).__init__(scene, "document", "green")
         self.doc = None
@@ -75,12 +70,14 @@ class DocumentNode(BaseNode):
         # Gui.ActiveDocument = Gui.getDocument(self.doc.Name).setEdit()
 
     def add_to_scene(self):
-        self.doc = App.newDocument()
         super(DocumentNode, self).add_to_scene()
-        self.back_to_nodes()
+        self.doc = App.newDocument()
+        # self.back_to_nodes()
 
 
 class ExtrudeNode(BaseNode):
+    """extrudes a scetch by given value in Z-direction"""
+
     def __init__(self, scene):
         super(ExtrudeNode, self).__init__(scene, "extrude", "blue")
         self.height = QtGui.QDoubleSpinBox()
@@ -107,6 +104,7 @@ class ExtrudeNode(BaseNode):
 
 
 class RevolveNode(BaseNode):
+    """revolve the sketch"""
     def __init__(self, scene):
         super(RevolveNode, self).__init__(scene, "revolution", "blue")
         self.angle = QtGui.QDoubleSpinBox()
@@ -140,6 +138,9 @@ class RevolveNode(BaseNode):
 
 
 class ViewerNode(BaseNode):
+    """shows an object on the given document.
+ if it is a list, the reference will be deleted"""
+
     def __init__(self, scene):
         super(ViewerNode, self).__init__(scene, "viewer", "yellow")
         self.obj = None
@@ -178,6 +179,8 @@ class ViewerNode(BaseNode):
 
 
 class CutNode(BaseNode):
+    """Cut the second shape from the first"""
+
     def __init__(self, scene):
         super(CutNode, self).__init__(scene, "Cut", "blue")
         self.shape1_slot = ShapeInput(scene)
@@ -196,7 +199,6 @@ class CutNode(BaseNode):
         else:
             #both are shapes and have methode cut
             return shp1.cut(shp2)
-            
 
 ButtonDict = {
     "Cut": CutNode,

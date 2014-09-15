@@ -3,6 +3,7 @@ from nodeeditor import NodeProxyWidget, SlotOutput, SlotInput, BaseNode
 
 
 class SliderNode(BaseNode):
+    "Returns a single value"
     def __init__(self, scene):
         super(SliderNode, self).__init__(scene=scene, title="SliderNode")
         self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
@@ -22,6 +23,8 @@ class SliderNode(BaseNode):
 
 
 class GetValueNode(BaseNode):
+    """Shows the output of the connected Node."""
+
     def __init__(self, scene):
         super(GetValueNode, self).__init__(scene, "GetValue")
         self.val = QtGui.QLabel()
@@ -45,22 +48,32 @@ class GetValueNode(BaseNode):
 
 
 class HelpNode(BaseNode):
+    """This Node provides some information if
+ you connect it to a Nodes output."""
+
     def __init__(self, scene):
         super(HelpNode, self).__init__(scene, "Help", "LightBlue")
-        self.val = QtGui.QLabel()
+        self.val = QtGui.QTextEdit()
+        self.val.sizeHint = self.text_sizeHint
+        self.val.setReadOnly(True)
         self.val.setAlignment(QtCore.Qt.AlignCenter)
         self.inp_slot = SlotInput(scene)
         self.press = QtGui.QPushButton()
         self.addWidget(self.press)
         self.addWidget(self.inp_slot, self.val)
         self.connect(self.press, QtCore.SIGNAL("clicked()"), self.set_value)
+        self.set_value()
 
     def set_value(self, val=None):
-        val = self.inp_slot.help_()
+        val = self.inp_slot.help_() or self.__doc__
         self.val.setText(str(val))
+
+    def text_sizeHint(self):
+        return QtCore.QSize(10, 10)
 
 
 class AddNode(BaseNode):
+    "simple math Node"
     def __init__(self, scene):
         super(AddNode, self).__init__(scene, "Add")
         self.val1_slot = SlotInput(scene)
@@ -78,6 +91,9 @@ class AddNode(BaseNode):
 
 
 class ListNode(BaseNode):
+    """joins all kind of objects, but you have to care
+ where to put the output in"""
+
     def __init__(self, scene):
         super(ListNode, self).__init__(scene=scene, title="List")
         slot = SlotInput(scene)
@@ -121,6 +137,7 @@ class ListNode(BaseNode):
 
 
 class LoopNode(BaseNode):
+    """make an array of objects"""
     def __init__(self, scene):
         super(LoopNode, self).__init__(scene, "Loop", "red")
         self.iter_max_slot = SlotInput(scene)
