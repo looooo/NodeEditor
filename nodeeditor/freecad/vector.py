@@ -1,5 +1,5 @@
 from nodeeditor import BaseNode
-from nodeeditor.freecad.slots import SlotInput, SlotOutput, ShapeOutput, ShapeInput
+from nodeeditor.freecad import slots
 from PySide import QtCore, QtGui
 import FreeCAD as App
 
@@ -10,7 +10,7 @@ class VectorNode(BaseNode):
         self.x = QtGui.QDoubleSpinBox()
         self.y = QtGui.QDoubleSpinBox()
         self.z = QtGui.QDoubleSpinBox()
-        self.slot_out = SlotOutput(scene)
+        self.slot_out = slots.SlotOutput(scene)
         [self.addWidget(i) for i in (self.x, self.y, self.z)]
         self.addWidget(self.slot_out)
         self.slot_out.output = self.output
@@ -46,7 +46,7 @@ class MatrixNode(BaseNode):
                      [self.yx, self.yy, self.yz, self.yw],
                      [self.zx, self.zy, self.zz, self.zw],
                      [self.wx, self.wy, self.wz, self.ww]]
-        self.slot_out = SlotOutput(scene)
+        self.slot_out = slots.SlotOutput(scene)
         for i, row in enumerate(self.Qmat):
             for j, wid in enumerate(row):
                 self.layout.addWidget(wid, i+1, j)
@@ -60,9 +60,9 @@ class MatrixNode(BaseNode):
 class apply_matrix(BaseNode):
     def __init__(self, scene):
         super(apply_matrix, self).__init__(scene=scene, title="apply matrix")
-        self.mat_input = SlotInput(scene)
-        self.shp_input = ShapeInput(scene)
-        self.shp_output = ShapeOutput(scene)
+        self.mat_input = slots.SlotInput(scene)
+        self.shp_input = slots.ShapeInput(scene)
+        self.shp_output = slots.ShapeOutput(scene)
         self.addWidget(self.mat_input, QtGui.QLabel("matrix"))
         self.addWidget(self.shp_input, QtGui.QLabel("shape"))
         self.addWidget(self.shp_output, QtGui.QLabel("shape"))

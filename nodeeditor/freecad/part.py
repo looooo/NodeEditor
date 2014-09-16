@@ -1,17 +1,17 @@
 import Part
 from PySide import QtGui
 from nodeeditor import BaseNode
-from nodeeditor.freecad.slots import ShapeOutput, SlotInput
+from nodeeditor.freecad import slots
 
 
 class SphereNode(BaseNode):
     """return a sphere with a given radius (float)"""
     def __init__(self, scene):
-        super(SphereNode, self).__init__(scene, "sphere", "yellow")
+        super(SphereNode, self).__init__(scene, "sphere")
         self.radius = QtGui.QDoubleSpinBox()
         self.radius.setValue(3)
-        self.radius_slot = SlotInput(scene)
-        self.shape_out = ShapeOutput(scene)
+        self.radius_slot = slots.SlotInput(scene)
+        self.shape_out = slots.ShapeOutput(scene)
         self.addWidget(self.radius, self.radius_slot)
         self.addWidget(self.shape_out, QtGui.QLabel('shape'))
         self.shape_out.output = self.output
@@ -25,14 +25,14 @@ class SphereNode(BaseNode):
 class CylinderNode(BaseNode):
     """return a cylinder with given height and radius"""
     def __init__(self, scene):
-        super(CylinderNode, self).__init__(scene, "cylinder", "yellow")
+        super(CylinderNode, self).__init__(scene, "cylinder")
         self.height = QtGui.QDoubleSpinBox()
         self.height.setValue(10.)
-        self.height_slot = SlotInput(scene)
+        self.height_slot = slots.SlotInput(scene)
         self.radius = QtGui.QDoubleSpinBox()
         self.radius.setValue(3)
-        self.radius_slot = SlotInput(scene)
-        self.shape_out = ShapeOutput(scene)
+        self.radius_slot = slots.SlotInput(scene)
+        self.shape_out = slots.ShapeOutput(scene)
         self.addWidget(self.height, self.height_slot)
         self.addWidget(self.radius, self.radius_slot)
         self.addWidget(self.shape_out, QtGui.QLabel('shape'))

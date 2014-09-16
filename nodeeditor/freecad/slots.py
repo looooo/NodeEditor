@@ -2,20 +2,32 @@ from nodeeditor import SlotInput, SlotOutput
 
 
 class ShapeInput(SlotInput):
-    def __init__(self, scene):
-        super(ShapeInput, self).__init__(scene=scene)
+    color = "green"
 
-    def mouseMoveEvent(self, event):
-        super(ShapeInput, self).mouseMoveEvent(event)
-        # if not isinstance(self.connection_node, ShapeOutput):
-        #     self.connection_node = None
+    @property
+    def accepted_slots(self):
+        return (ShapeOutput)
 
 
 class ShapeOutput(SlotOutput):
-    def __init__(self, scene):
-        super(ShapeOutput, self).__init__(scene=scene)
+    color = "green"
 
-    def mouseMoveEvent(self, event):
-        super(ShapeOutput, self).mouseMoveEvent(event)
-        # if not isinstance(self.connection_node, ShapeInput):
-        #     self.connection_node = None
+    @property
+    def accepted_slots(self):
+        return (ShapeInput)
+
+
+class DocumentInput(SlotInput):
+    color = "yellow"
+
+    @property
+    def accepted_slots(self):
+        return (DocumentOutput)
+
+
+class DocumentOutput(SlotOutput):
+    color = "yellow"
+
+    @property
+    def accepted_slots(self):
+        return (DocumentInput)

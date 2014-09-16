@@ -11,7 +11,7 @@ import math
 #find bugs
 
 class BaseNode(QtGui.QWidget):
-    def __init__(self, scene, title="base widget", color="green"):
+    def __init__(self, scene, title="base widget", color="grey"):
         super(BaseNode, self).__init__()
         self.setObjectName("BaseWidget")
         self.scene = scene
@@ -36,6 +36,7 @@ class BaseNode(QtGui.QWidget):
         pen = QtGui.QPen()
         pen.setColor(self.color)
         painter.setPen(pen)
+        painter.setOpacity(0.6)
         rect = painter.drawRoundedRect(self.rect(), 20, 20)
 
     @property
@@ -165,9 +166,9 @@ class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
 class Slot(QtGui.QCheckBox):
     """a Checkbox which has some connection info and connections to other Slots
             make new connection with left click"""
-    def __init__(self, scene=None, color='black'):
+    color = 'black'
+    def __init__(self, scene=None):
         super(Slot, self).__init__()
-        self.color = color
         self.scene = scene
         self.line = []
         self.connection = False
@@ -254,6 +255,7 @@ class Slot(QtGui.QCheckBox):
 
 class SlotInput(Slot):
     """this node only accept one line"""
+
     def mousePressEvent(self, event):
         if len(self.line) == 0:
             super(SlotInput, self).mousePressEvent(event)
@@ -263,7 +265,7 @@ class SlotInput(Slot):
 
     def mouseMoveEvent(self, event):
         super(SlotInput, self).mouseMoveEvent(event)
-        if not isinstance(self.connection_node, SlotOutput):
+        if not isinstance(self.connection_node, self.accepted_slots):
             self.connection_node = None
 
     def get_connected_node(self):
@@ -291,12 +293,12 @@ class SlotInput(Slot):
             return connected_node.parent().__doc__
         return None
 
+    @property
+    def accepted_slots(self):
+        return (SlotOutput)
+
 
 class SlotOutput(Slot):
-    def __init__(self, scene, color="black"):
-        super(SlotOutput, self).__init__(scene=scene, color=color)
-        #set this output fuction to something else
-
     def mouseReleaseEvent(self, event):
         if self.connection:
             if self.connection_node is not None:
@@ -306,7 +308,7 @@ class SlotOutput(Slot):
 
     def mouseMoveEvent(self, event):
         super(SlotOutput, self).mouseMoveEvent(event)
-        if not isinstance(self.connection_node, SlotInput):
+        if not isinstance(self.connection_node, self.accepted_slots):
             self.connection_node = None
 
     def get_connected_nodes(self):
@@ -325,6 +327,10 @@ class SlotOutput(Slot):
 
     def help_(self):
         return("connect me")
+
+    @property
+    def accepted_slots(self):
+        return SlotInput
 
 
 class NodeLine(QtGui.QGraphicsLineItem):
