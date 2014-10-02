@@ -1,18 +1,18 @@
 from PySide import QtGui, QtCore
-from nodeeditor import NodeProxyWidget, SlotOutput, SlotInput, BaseNode
+from nodeeditor import SlotOutput, SlotInput, BaseNode
+from nodeeditor import Gui
 
 
 class SliderNode(BaseNode):
     "Returns a single value"
     def __init__(self, scene):
         super(SliderNode, self).__init__(scene=scene, title="SliderNode")
-        self.slider = QtGui.QSlider(QtCore.Qt.Horizontal)
+        self.slider = Gui.Slider(QtCore.Qt.Horizontal)
         self.outp_slot = SlotOutput(scene)
-        self.value = QtGui.QLabel(str(self.slider.value()))
-        self.value.setAlignment(QtCore.Qt.AlignCenter)
-        self.addWidget(self.slider)
-        self.addWidget(self.value, self.outp_slot)
-        self.connect(self.slider, QtCore.SIGNAL("valueChanged(int)"), self.set_value)
+        self.value = Gui.Label(str(self.slider.value()))
+        self.addItem(self.slider)
+        self.addItem(self.value, self.outp_slot)
+        self.slider.valueChanged.connect(self.set_value)
         self.outp_slot.output = self.output
 
     def output(self):
@@ -27,14 +27,13 @@ class GetValueNode(BaseNode):
 
     def __init__(self, scene):
         super(GetValueNode, self).__init__(scene, "GetValue")
-        self.val = QtGui.QLabel()
-        self.val.setAlignment(QtCore.Qt.AlignCenter)
+        self.val = Gui.Label()
         self.inp_slot = SlotInput(scene)
         self.outp_slot = SlotOutput(scene)
-        self.press = QtGui.QPushButton()
-        self.addWidget(self.press)
-        self.addWidget(self.inp_slot, self.val, self.outp_slot)
-        self.connect(self.press, QtCore.SIGNAL("clicked()"), self.set_value)
+        self.press = Gui.PushButton("press")
+        self.addItem(self.press)
+        self.addItem(self.inp_slot, self.val, self.outp_slot)
+        self.press.clicked.connect(self.set_value)
         self.outp_slot.output = self.output
 
     def set_value(self, val=None):
@@ -44,7 +43,7 @@ class GetValueNode(BaseNode):
     def output(self):
         inp = self.inp_slot.input()
         self.set_value(inp)
-        return(inp)
+        return inp or 0
 
 
 class HelpNode(BaseNode):
@@ -53,41 +52,44 @@ class HelpNode(BaseNode):
 
     def __init__(self, scene):
         super(HelpNode, self).__init__(scene, "Help", "LightBlue")
-        self.val = QtGui.QTextEdit()
+        self.val = Gui.TextEdit()
         self.val.sizeHint = self.text_sizeHint
+        self.val.setMinimumSize(200, 50)
         self.val.setReadOnly(True)
         self.val.setAlignment(QtCore.Qt.AlignCenter)
         self.inp_slot = SlotInput(scene)
-        self.press = QtGui.QPushButton()
-        self.addWidget(self.press)
-        self.addWidget(self.inp_slot, self.val)
-        self.connect(self.press, QtCore.SIGNAL("clicked()"), self.set_value)
+        self.press = Gui.PushButton()
+        self.addItem(self.press)
+        self.addItem(self.inp_slot, self.val)
+        self.press.clicked.connect(self.set_value)
         self.set_value()
 
     def set_value(self, val=None):
         val = self.inp_slot.help_() or self.__doc__
         self.val.setText(str(val))
+        self.adjustSize()
+        self.update()
 
-    def text_sizeHint(self):
+    def text_sizeHint(self, *args):
         return QtCore.QSize(10, 10)
 
 
-class AddNode(BaseNode):
-    "simple math Node"
-    def __init__(self, scene):
-        super(AddNode, self).__init__(scene, "Add")
-        self.val1_slot = SlotInput(scene)
-        self.val2_slot = SlotInput(scene)
-        self.out_slot = SlotOutput(scene)
-        self.math = QtGui.QListWidget()
-        self.addWidget(self.math)
-        self.addWidget(self.val1_slot, QtGui.QLabel("value"))
-        self.addWidget(self.val2_slot, QtGui.QLabel("value"))
-        self.addWidget(self.out_slot, QtGui.QLabel("value"))
-        self.out_slot.output = self.output
+# class AddNode(BaseNode):
+#     "simple math Node"
+#     def __init__(self, scene):
+#         super(AddNode, self).__init__(scene, "Add")
+#         self.val1_slot = SlotInput(scene)
+#         self.val2_slot = SlotInput(scene)
+#         self.out_slot = SlotOutput(scene)
+#         self.math = QtGui.SpinBox()
+#         self.addWidget(self.math)
+#         self.addWidget(self.val1_slot, Label("value"))
+#         self.addWidget(self.val2_slot, Label("value"))
+#         self.addWidget(self.out_slot, Label("value"))
+#         self.out_slot.output = self.output
 
-    def output(self):
-        return self.val1_slot.input() + self.val2_slot.input()
+#     def output(self):
+#         return self.val1_slot.input() + self.val2_slot.input()
 
 
 class ListNode(BaseNode):
@@ -98,15 +100,13 @@ class ListNode(BaseNode):
         super(ListNode, self).__init__(scene=scene, title="List")
         slot = SlotInput(scene)
         slot.setParent(self)
-        self.push = QtGui.QPushButton()
+        self.push = Gui.PushButton()
         slot.got_connected = self.update_slots
         self.slot_list = [slot]
         self.slot_out = SlotOutput(scene)
-        self.addWidget(self.push)
-        self.addWidget(self.slot_out)
-        self.layout.addWidget(self.slot_list[0], 3, 0)
+        self.addItem(self.slot_out)
+        self.layout().addItem(self.slot_list[0], 3, 0)
         self.slot_out.output = self.output
-        self.connect(self.push, QtCore.SIGNAL("clicked()"), self.update_slots)
 
     def update_slots(self):
         if len(self.slot_list) == 1 and self.slot_list[0].input is None:
@@ -115,19 +115,17 @@ class ListNode(BaseNode):
             for i in self.children():
                 if isinstance(i, SlotInput):
                     if i.input() == None:
-                        if i in self.scene.node_list:
-                            self.scene.node_list.remove(i)
-                        else:
-                            print("jezt")
+                        if i in self._scene.node_list:
+                            self._scene.node_list.remove(i)
                         if i in self.slot_list:
                             self.slot_list.remove(i)
-                        self.layout.removeWidget(i)
+                        self.layout().removeItem(i)
                         i.deleteLater()
-            slot = SlotInput(self.scene)
+            slot = SlotInput(self._scene)
             slot.got_connected = self.update_slots
             slot.setParent(self)
             self.slot_list.append(slot)
-            self.layout.addWidget(slot, self.layout.rowCount() + 2, 0)
+            self.layout().addItem(slot, self.layout().rowCount() + 2, 0)
             self.adjustSize()
             self.update_lines()
 
@@ -136,58 +134,58 @@ class ListNode(BaseNode):
         return [i for i in arr if i is not None]
 
 
-class LoopNode(BaseNode):
-    """make an array of objects"""
-    def __init__(self, scene):
-        super(LoopNode, self).__init__(scene, "Loop", "red")
-        self.iter_max_slot = SlotInput(scene)
-        self.iter_max = QtGui.QSpinBox()
-        self.input_slot = SlotInput(scene)
-        self.loop_input = SlotInput(scene)
-        self.loop_output_slot = SlotOutput(scene)
-        self.output_slot = SlotOutput(scene)
+# class LoopNode(BaseNode):
+#     """make an array of objects"""
+#     def __init__(self, scene):
+#         super(LoopNode, self).__init__(scene, "Loop", "red")
+#         self.iter_max_slot = SlotInput(scene)
+#         self.iter_max = QtGui.QSpinBox()
+#         self.input_slot = SlotInput(scene)
+#         self.loop_input = SlotInput(scene)
+#         self.loop_output_slot = SlotOutput(scene)
+#         self.output_slot = SlotOutput(scene)
 
-        self.iter_max = QtGui.QSpinBox()
-        self.iter_max.setValue(0)
+#         self.iter_max = QtGui.QSpinBox()
+#         self.iter_max.setValue(0)
 
-        self.addWidget(self.iter_max_slot, self.iter_max)
-        self.addWidget(self.input_slot, QtGui.QLabel("object in"))
-        self.addWidget(self.loop_output_slot, QtGui.QLabel("loop_object"), self.loop_input)
-        self.addWidget(self.output_slot, QtGui.QLabel("object_out"))
-        self.arr = []
-        self.iter = 0
-        self.output_slot.output = self.output
-        self.loop_output_slot.output = self.loop_output
+#         self.addWidget(self.iter_max_slot, self.iter_max)
+#         self.addWidget(self.input_slot, Label("object in"))
+#         self.addWidget(self.loop_output_slot, Label("loop_object"), self.loop_input)
+#         self.addWidget(self.output_slot, Label("object_out"))
+#         self.arr = []
+#         self.iter = 0
+#         self.output_slot.output = self.output
+#         self.loop_output_slot.output = self.loop_output
 
-    def output(self):
-        self.iter = 0
-        print("enter loop")
-        thing = self.loop_input.input()
-        self.arr.append(thing)
-        print("exit loop")
-        return self.arr
+#     def output(self):
+#         self.iter = 0
+#         print("enter loop")
+#         thing = self.loop_input.input()
+#         self.arr.append(thing)
+#         print("exit loop")
+#         return self.arr
 
-    def loop_output(self):
-        iter_max = self.iter_max_slot.input() or self.iter_max.value()
-        print("iter_max", iter_max)
-        print("iter", self.iter)
-        if self.iter < iter_max:
-            self.iter += 1
-            thing = self.loop_input.input()
-            self.arr.append(thing)
-        else:
-            # self.arr = []
-            thing = self.input_slot.input()
-            self.arr = []
-            self.arr.append(thing)
-        return thing
+#     def loop_output(self):
+#         iter_max = self.iter_max_slot.input() or self.iter_max.value()
+#         print("iter_max", iter_max)
+#         print("iter", self.iter)
+#         if self.iter < iter_max:
+#             self.iter += 1
+#             thing = self.loop_input.input()
+#             self.arr.append(thing)
+#         else:
+#             # self.arr = []
+#             thing = self.input_slot.input()
+#             self.arr = []
+#             self.arr.append(thing)
+#         return thing
 
 
 ButtonDict = {
     "Slider": SliderNode,
     "GetValue": GetValueNode,
-    "Add": AddNode,
+    # "Add": AddNode,
     "List": ListNode,
-    "Loop": LoopNode,
+    # "Loop": LoopNode,
     "Help": HelpNode    
 }

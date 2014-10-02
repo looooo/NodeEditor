@@ -9,9 +9,9 @@ import FreeCADGui as Gui
 
 ButtonDict = {
     "Value": value.ButtonDict,
-    "Vector": vector.ButtonDict,
-    "Operator": operator.ButtonDict,
-    "Part": part.ButtonDict
+    # "Vector": vector.ButtonDict,
+    "Operator": operator.ButtonDict #,
+    # "Part": part.ButtonDict
 }
 
 
@@ -106,7 +106,6 @@ class NodeWindow2(object):
 
     def addToScene(self, object_class):
         object_class(self.scene)
-
 
 
 class BaseNodeButton(QtGui.QPushButton):

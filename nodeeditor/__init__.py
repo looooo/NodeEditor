@@ -2,42 +2,62 @@ from __future__ import division
 import sys
 from PySide import QtGui, QtCore
 import math
+from Gui import *
 
 
-#TODO:
-#dragging the sdene
-#triggerfunc for dynamic update
-#cached properties
-#find bugs
-
-class BaseNode(QtGui.QWidget):
-    def __init__(self, scene, title="base widget", color="grey"):
+class BaseNode(QtGui.QGraphicsWidget):
+    def __init__(self, scene=None, title="BASE ITEM", color="green"):
         super(BaseNode, self).__init__()
-        self.setObjectName("BaseWidget")
-        self.scene = scene
+        self._scene = scene
         self.color = color
-        self.layout = QtGui.QGridLayout(self)
-        self.title = QtGui.QLabel(title)
-        self.title.setAlignment(QtCore.Qt.AlignCenter)
-        self.layout.addItem(QtGui.QSpacerItem(10, 10), 0, 0)
-        self.layout.addItem(QtGui.QSpacerItem(10, 10), 0, 2)
-        self.layout.addWidget(self.title, 0, 1)
-        self.layout.setSpacing(0)
-        self.setStyleSheet(
-            """QWidget#BaseWidget {background-color:transparent};
-            """)
-        self.item = None
-        self.is_hidden = False
+        self.setFlag(QtGui.QGraphicsItem.ItemIsMovable)
+        self.setFlag(QtGui.QGraphicsItem.ItemIsSelectable)
+        layout = QtGui.QGraphicsGridLayout(self)
+        layout.setContentsMargins(2, 2, 2, 2)
+        layout.setVerticalSpacing(1)
+        self.setLayout(layout)
+        self.setMinimumWidth(10)
+        self.setMinimumHeight(10)
+        self.setMaximumWidth(500)
+        self.addItem(SlotFakeOutput(), Label(title), SlotFakeInput())
 
-    def paintEvent(self, ev):
-        painter = QtGui.QPainter(self)
-        brush = QtGui.QBrush(QtGui.QColor(self.color), QtCore.Qt.BrushStyle.SolidPattern)
-        painter.setBrush(brush)
+    @property
+    def brush(self):
+        return QtGui.QBrush(QtGui.QColor(self.color), QtCore.Qt.BrushStyle.SolidPattern)
+
+    @property
+    def pen(self):
+        col = 'yellow' if self.selected else 'black'  
+        self.setZValue(10) if self.selected else self.setZValue(self.zValue() - 1)
         pen = QtGui.QPen()
-        pen.setColor(self.color)
-        painter.setPen(pen)
-        painter.setOpacity(0.6)
-        rect = painter.drawRoundedRect(self.rect(), 20, 20)
+        pen.setColor(col)
+        return(pen)
+
+    @property
+    def selected(self):
+        return self.isSelected()
+
+    def paint(self, painter, option, widget):
+        shape = QtGui.QPainterPath()
+        rect = self.rect()
+        rect.adjust(7, 0, -7, 0)
+        shape.addRoundedRect(rect, 10, 10)
+        opt = 0.7
+        painter.setOpacity(opt)
+        painter.setBrush(self.brush)
+        painter.setPen(self.pen)
+        painter.drawPath(shape)
+
+    def mouseMoveEvent(self, event):
+        super(BaseNode, self).mouseMoveEvent(event)
+        if event.buttons() == QtCore.Qt.LeftButton:
+            for i in range(2):
+                self.update_lines()
+
+    def update_lines(self):
+        for slot in self.slots:
+            for line in slot.line:
+                line.update_line()
 
     @property
     def slots(self):
@@ -53,157 +73,92 @@ class BaseNode(QtGui.QWidget):
             else:
                 BaseNode.find_slots(child, arr=arr)
 
-    def addWidget(self, *widgets):
-        num_row = self.layout.rowCount()
-        for wid in widgets:
-            wid.setParent(self)
-            if isinstance(wid, SlotInput):
-                self.layout.addWidget(wid, num_row, 0)
-            elif isinstance(wid, SlotOutput):
-                self.layout.addWidget(wid, num_row, 2)
+    def addItem(self, *items):
+        num_row = self.layout().rowCount()
+        for item in items:
+            item.setParent(self)
+            if isinstance(item, (SlotInput, SlotFakeInput)):
+                self.layout().addItem(item, num_row, 0, QtCore.Qt.AlignCenter)
+            elif isinstance(item, (SlotOutput, SlotFakeOutput)):
+                self.layout().addItem(item, num_row, 2, QtCore.Qt.AlignCenter)
             else:
-                self.layout.addWidget(wid, num_row, 1)
+                self.layout().addItem(item, num_row, 1, QtCore.Qt.AlignCenter)
+
+    def removeWidget(self, widget):
+        # parent has to be set!
+        self.layout.removeWidget(widget)
+        if widget in self._scene.node_list:
+            self._scene.node_list.remove(widget)
+        if isinstance(widget, Slot):
+            for l in widget.line:
+                widget.delete_line(l)
+        widget.setParent(None)
+        widget.deleteLater()
 
     def add_to_scene(self):
-        self.item = NodeProxyWidget(self)
-        self.scene.addItem(self.item)
-
-    def delete(self):
-        # add stuff you want to do before deleting the object
-        self.scene.removeItem(self.item)
-
-    def get_lower_connected(self):
-        arr = [i.get_connected_nodes() for i in self.slots if isinstance(i, SlotOutput)]
-        arr1 = []
-        for a in arr:
-            arr1 += a
-        return(arr1)
-
-    def trigger(self, nodes):
-        for i in nodes:
-            i.trigger(i.get_lower_connected())
-
-    def get_view(self):
-        try:
-            return self.scene.views()[0]
-        except:
-            return None
-
-    def get_mdi_sub_window(self):
-        try:
-            return self.get_view().parent()
-        except:
-            return None
-
-    def get_mdi_widget(self):
-        try:
-            return self.get_mdi_sub_window().parent().parent()
-        except:
-            return None
-
-    def back_to_nodes(self):
-        self.get_mdi_widget().setActiveSubWindow(self.get_mdi_sub_window())
+        self._scene.addItem(self)
 
 
-    def minimize(self):
-        for i in self.children():
-            if isinstance(i, QtGui.QWidget):
-                if not isinstance(i, (Slot, QtGui.QLabel)):
-                    if self.is_hidden:
-                        i.show()
-                    else:
-                        i.hide()
-        self.adjustSize()
-        self.item.update_lines()
-        self.is_hidden = not self.is_hidden
 
-    def update_lines(self):
-        for slot in self.slots:
-            for line in slot.line:
-                line.update_line()
-
-
-class NodeProxyWidget(QtGui.QGraphicsProxyWidget):
-    """The QGraphicsProxyWidget allows to get the Widget on the scene"""
-    def __init__(self, widget=None, parent=None):
-        super(NodeProxyWidget, self).__init__(parent=parent)
-        self.setWidget(widget)
-        self.setPos(200, 200)
-        self.current_pos = None
-
-    def mousePressEvent(self, event):
-        # this node proxy widget deletes the handler from the widget
-        # so there is the right mouse handling
-        if event.buttons() == QtCore.Qt.RightButton:
-            self.current_pos = event.pos()
-        else:
-            super(NodeProxyWidget, self).mousePressEvent(event)
-
-    def mouseMoveEvent(self, event):
-        super(NodeProxyWidget, self).mouseMoveEvent(event)
-        if event.buttons() == QtCore.Qt.RightButton:
-            self.setPos(self.mapToParent(event.pos()) - self.current_pos)
-            for i in range(2):
-                self.update_lines()
-        else:
-            super(NodeProxyWidget, self).mouseMoveEvent(event)
-
-    def update_lines(self):
-        self.widget().update_lines()
-
-    def keyPressEvent(self, event):
-        if event.key() == 88:
-            self.widget().delete()
-            for i in self.widget().slots:
-                i.delete_node()
-                self.widget().scene.node_list.remove(i)
-        super(NodeProxyWidget, self).keyPressEvent(event)
-
-    def mouseDoubleClickEvent(self, event):
-        self.widget().minimize()
-
-
-class Slot(QtGui.QCheckBox):
-    """a Checkbox which has some connection info and connections to other Slots
-            make new connection with left click"""
-    color = 'black'
-    def __init__(self, scene=None):
+class Slot(QtGui.QGraphicsWidget):
+    def __init__(self, scene, parent=None, color = 'yellow'):
         super(Slot, self).__init__()
-        self.scene = scene
+        self.setParent(parent)
+        self.width = 10
+        self.height = 10
+        self._color = color
+        self.setMaximumSize(self.width, self.height)
+        self._scene = scene
         self.line = []
         self.connection = False
         self.connection_node = None
         scene.node_list.append(self)
 
-    def paintEvent(self, ev):
-        painter = QtGui.QPainter(self)
-        brush = QtGui.QBrush(QtGui.QColor(self.color), QtCore.Qt.BrushStyle.SolidPattern)
-        painter.setBrush(brush)
+    @property
+    def color(self):
+        return QtGui.QColor(self._color)
+
+    @property
+    def selected(self):
+        return self.parent().selected
+
+    @property
+    def pen(self):
+        col = 'yellow' if self.connection else 'black'
         pen = QtGui.QPen()
-        pen.setColor(self.color)
-        painter.setPen(pen)
-        rect = self.rect()
-        rect.adjust(4,4,-4,-4)
-        painter.drawRoundedRect(rect, 4, 4)
+        pen.setColor(col)
+        return(pen)
+    
+    @property
+    def brush(self):
+        return QtGui.QBrush(QtGui.QColor(self.color), QtCore.Qt.BrushStyle.SolidPattern)
+    
+    def paint(self, painter=None, option=None, widget=None):
+        shape = QtGui.QPainterPath()
+        shape.addEllipse(0, 0, self.width, self.height)
+        painter.setBrush(self.brush)
+        painter.setPen(self.pen)
+        painter.drawPath(shape)
 
     @property
     def global_pos(self):
-        temp = QtCore.QPointF(self.width() / 2, self.height() / 2)
-        return QtCore.QPointF(self.parent().mapToGlobal(self.pos())) + temp
+        temp = QtCore.QPointF(self.width / 2, self.height / 2)
+        return QtCore.QPointF(self.mapToScene(temp))
 
     def mousePressEvent(self, event):
+        self.update()
         self.connection = True
         pos = self.global_pos
         line = QtCore.QLineF(pos.x(), pos.y(), pos.x(), pos.y())
-        line_item = QtGui.QGraphicsLineItem(line, scene=self.scene)
+        line_item = QtGui.QGraphicsLineItem(line, scene=self._scene)
         line_item.setZValue(0)
         self.line.append(line_item)
 
     def mouseMoveEvent(self, event):
         if event.buttons() == QtCore.Qt.LeftButton:
             if len(self.line) > 0:
-                pos = self.mapToGlobal(event.pos())
-                for node in self.scene.node_list:
+                pos = self.mapToScene(event.pos())
+                for node in self._scene.node_list:
                     node_pos = node.global_pos
                     if PointNorm(node_pos, pos) < 10 and node.parent() is not self.parent():
                         self.connection_node = node
@@ -220,11 +175,9 @@ class Slot(QtGui.QCheckBox):
     def mouseReleaseEvent(self, event):
         if self.connection:
             if self.connection_node is not None:
-                line = NodeLine(self, self.connection_node, scene=self.scene)
+                line = NodeLine(self, self.connection_node, scene=self._scene)
                 self.connection_node.line.append(line)
                 self.line[-1] = line
-                self.setChecked(1)
-                self.connection_node.setChecked(1)
                 self.got_connected()
                 self.connection_node.got_connected()
                 self.connection_node = None
@@ -232,7 +185,7 @@ class Slot(QtGui.QCheckBox):
         for i, p in enumerate(self.line):
             if not isinstance(p, NodeLine):
                 self.line.pop(i)
-
+        self.update()
 
     def delete_line(self, line):
         node1 = line.node1
@@ -242,7 +195,7 @@ class Slot(QtGui.QCheckBox):
         node1.got_unconnected()
         node2.got_unconnected()
 
-    def delete_node(self):
+    def delete_Slot(self):
         while self.line:
             self.delete_line(self.line[0])
 
@@ -333,6 +286,22 @@ class SlotOutput(Slot):
         return SlotInput
 
 
+class SlotFakeInput(QtGui.QGraphicsWidget):
+    def setGeometry(self, rect):
+        pass
+
+    def sizeHint(self, *args):
+        return QtCore.QSizeF(10, 10)
+
+
+class SlotFakeOutput(QtGui.QGraphicsWidget):
+    def setGeometry(self, rect):
+        pass
+
+    def sizeHint(self, *args):
+        return QtCore.QSizeF(10, 10)
+
+
 class NodeLine(QtGui.QGraphicsLineItem):
     """ a Line Element to connect Nodes"""
     def __init__(self, node1, node2, scene=None):
@@ -340,7 +309,7 @@ class NodeLine(QtGui.QGraphicsLineItem):
         self.node1 = node1
         self.node2 = node2
         self.linef = QtCore.QLineF(node1.global_pos, node2.global_pos)
-        self.setZValue(-1)
+        self.setZValue(11)
         self.setLine(self.linef)
         self.delete_line = False
 
@@ -352,10 +321,31 @@ class NodeLine(QtGui.QGraphicsLineItem):
 
 class NodeScene(QtGui.QGraphicsScene):
     """A GraphicsScene which has a list of all the nodes"""
-    def __init__(self):
+    def __init__(self, color="grey"):
         super(NodeScene, self).__init__()
-        self.setSceneRect(-0, 0, 2000, 2000)
+        self.setSceneRect(-0, 0, 500, 500)
+        self._color = color
         self.node_list = []
+        self.setBackgroundBrush(self.color)
+
+    @property
+    def color(self):
+        return QtGui.QColor(self._color)
+
+    def drawBackground(self, painter, rect):
+        super(NodeScene, self).drawBackground(painter, rect)
+        painter.setPen(QtGui.QPen(self.color.lighter(90)))
+        gridSize = 50
+        left = int(rect.left()) - (int(rect.left()) % gridSize)
+        top = int(rect.top()) - (int(rect.top()) % gridSize)
+        x = left
+        while x < rect.right():
+            painter.drawLine(x, rect.top(), x, rect.bottom())
+            x += gridSize
+        y = top
+        while y < rect.bottom():
+            painter.drawLine(rect.left(), y, rect.right(), y)
+            y += gridSize
 
 
 class NodeView(QtGui.QGraphicsView):
@@ -369,7 +359,7 @@ class NodeView(QtGui.QGraphicsView):
     def mousePressEvent(self, event):
         if self.add_item:
             self.add_item.add_to_scene()
-            self.add_item.item.setPos(self.mapToScene(event.pos()))
+            self.add_item.setPos(self.mapToScene(event.pos()))
             self.add_item = None
         super(NodeView, self).mousePressEvent(event)
 
@@ -377,24 +367,23 @@ class NodeView(QtGui.QGraphicsView):
         scale_value = 1 + (event.delta() / 5000)
         self.scale(scale_value, scale_value)
 
-
 def PointNorm(p1, p2):
     return(math.sqrt((p1.x() - p2.x()) ** 2 + (p1.y() - p2.y()) ** 2))
 
 
-from nodeeditor.python import value
-
 if __name__ == "__main__":
+    from nodeeditor.python import value
     app = QtGui.QApplication(sys.argv)
+    app.setOverrideCursor(QtCore.Qt.ArrowCursor)
     scene = NodeScene()
-
-    view = NodeView(scene)
-    view.show()
-
+    item = value.SliderNode(scene)
     value.SliderNode(scene).add_to_scene()
+    value.GetValueNode(scene).add_to_scene()
     value.HelpNode(scene).add_to_scene()
     value.ListNode(scene).add_to_scene()
 
 
+    view = NodeView(scene)
+    view.show()
 
     sys.exit(app.exec_())
